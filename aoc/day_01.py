@@ -8,7 +8,7 @@ class RocketLaunch:
         modules (List[int]): List containing the masses of all modules to be launched.
     """
 
-    def __init__(self, modules: List[int] = []):
+    def __init__(self, modules: List[int] = []) -> None:
         self.modules = modules
 
     def fuel_requirements(self, ignore_fuel_mass: bool = False) -> int:
@@ -35,7 +35,7 @@ class RocketLaunch:
         """
         return mass // 3 - 2
 
-    def _get_fuel(self, mass: int, ignore_fuel_mass: bool = False) -> int:
+    def _get_fuel(self, mass: int) -> int:
         """Similar to `_get_module_fuel`, but takes fuel mass into consideration."""
         fuel = mass // 3 - 2
 
@@ -53,6 +53,5 @@ if __name__ == "__main__":
         print("Challenge 1:")
         print(launch.fuel_requirements(ignore_fuel_mass=True))
 
-        print("\n")
-        print("Challenge 2:")
+        print("\nChallenge 2:")
         print(launch.fuel_requirements())
