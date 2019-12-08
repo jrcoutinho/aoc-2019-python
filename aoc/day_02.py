@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Union
+from typing import Union, Tuple
 
 
 class IntcodeComputer:
@@ -13,9 +13,15 @@ class IntcodeComputer:
     def __init__(self, program: str = "") -> None:
         self.program = program
 
-        self._op_codes = {
+        self._opcodes = {
             1: self._op_sum,
             2: self._op_product,
+            3: self._op_input,
+            4: self._op_output,
+            5: self._op_jump_true,
+            6: self._op_jump_false,
+            7: self._op_less_than,
+            8: self._op_equals,
         }
         self._reset_memory()
 
@@ -24,12 +30,12 @@ class IntcodeComputer:
         self._reset_memory()
 
         pointer = 0
-        opcode = self.memory[pointer]
+        modes, opcode = self._parse_op(pointer)
 
         while opcode != 99:
             try:
                 # run instruction and get pointer move size
-                move = self._op_codes[opcode](pointer) + 1
+                move = self._opcodes[opcode](pointer, modes) + 1
             except KeyError as err:
                 print(f"Opcode {opcode} not found! Instruction is invalid.")
                 raise err
@@ -37,7 +43,7 @@ class IntcodeComputer:
             pointer += move
 
             try:
-                opcode = self.memory[pointer]
+                modes, opcode = self._parse_op(pointer)
             except IndexError as err:
                 print("Program has no halt opcode (99) at its end!")
                 raise err
@@ -65,7 +71,19 @@ class IntcodeComputer:
         """Sets computer's memory back to its initial state."""
         self.memory = [int(x) for x in self.program.split(",")]
 
-    def _op_sum(self, address: int) -> int:
+    def _parse_op(self, address: int) -> Tuple[str, int]:
+        """Parses operation to find the modes and opcode.
+
+        Args:
+            address (int): Memory address where operator information is located.
+
+        Returns:
+            Tuple[str, int]: Tuple containing the mode string and opcode integer.
+        """
+        op = str(self.memory[address])
+        return op[:-2], int(op[-2:])
+
+    def _op_sum(self, address: int, modes: str) -> int:
         """Sum opcode.
 
         Sums the integers located in the addresses indicated by the
@@ -82,12 +100,16 @@ class IntcodeComputer:
         n_params = 3
         self._validate_instruction(address, n_params)
 
-        arg_1, arg_2, out = self.memory[address + 1 : address + n_params + 1]
-        self.memory[out] = self.memory[arg_1] + self.memory[arg_2]
+        *args, out = self.memory[address + 1 : address + n_params + 1]
+        args = [
+            self.memory[arg] if mode == "0" else arg
+            for arg, mode in zip(args, modes.zfill(n_params - 1)[::-1])
+        ]
+        self.memory[out] = args[0] + args[1]
 
         return n_params
 
-    def _op_product(self, address: int) -> int:
+    def _op_product(self, address: int, modes: str) -> int:
         """Product opcode.
 
         Calculates the product of the integers located in the addresses
@@ -104,18 +126,93 @@ class IntcodeComputer:
         n_params = 3
         self._validate_instruction(address, n_params)
 
-        arg_1, arg_2, out = self.memory[address + 1 : address + n_params + 1]
-        self.memory[out] = self.memory[arg_1] * self.memory[arg_2]
+        *args, out = self.memory[address + 1 : address + n_params + 1]
+        args = [
+            self.memory[arg] if mode == "0" else arg
+            for arg, mode in zip(args, modes.zfill(n_params - 1)[::-1])
+        ]
+        self.memory[out] = args[0] * args[1]
+
+        return n_params
+
+    def _op_input(self, address: int, modes: str) -> int:
+        n_params = 1
+        self._validate_instruction(address, n_params)
+
+        try:
+            input_value = int(input())
+        except ValueError:
+            raise ValueError("Input must be an integer.")
+        out = self.memory[address + 1]
+        self.memory[out] = input_value
+
+        return n_params
+
+    def _op_output(self, address: int, modes: str) -> int:
+        n_params = 1
+        modes = modes.zfill(n_params)
+        self._validate_instruction(address, n_params)
+
+        out = self.memory[address + 1] if modes[0] == "0" else address + 1
+        print(self.memory[out])
+
+        return n_params
+
+    def _op_jump_true(self, address: int, modes: str) -> int:
+        n_params = 2
+        self._validate_instruction(address, n_params)
+
+        args = self.memory[address + 1 : address + n_params + 1]
+        args = [
+            self.memory[arg] if mode == "0" else arg
+            for arg, mode in zip(args, modes.zfill(n_params)[::-1])
+        ]
+
+        return (args[1] - address - 1) if args[0] else n_params
+
+    def _op_jump_false(self, address: int, modes: str) -> int:
+        n_params = 2
+        self._validate_instruction(address, n_params)
+
+        args = self.memory[address + 1 : address + n_params + 1]
+        args = [
+            self.memory[arg] if mode == "0" else arg
+            for arg, mode in zip(args, modes.zfill(n_params)[::-1])
+        ]
+
+        return (args[1] - address - 1) if not args[0] else n_params
+
+    def _op_less_than(self, address: int, modes: str) -> int:
+        n_params = 3
+        self._validate_instruction(address, n_params)
+
+        *args, out = self.memory[address + 1 : address + n_params + 1]
+        args = [
+            self.memory[arg] if mode == "0" else arg
+            for arg, mode in zip(args, modes.zfill(n_params - 1)[::-1])
+        ]
+        self.memory[out] = 1 if args[0] < args[1] else 0
+
+        return n_params
+
+    def _op_equals(self, address: int, modes: str) -> int:
+        n_params = 3
+        self._validate_instruction(address, n_params)
+
+        *args, out = self.memory[address + 1 : address + n_params + 1]
+        args = [
+            self.memory[arg] if mode == "0" else arg
+            for arg, mode in zip(args, modes.zfill(n_params - 1)[::-1])
+        ]
+        self.memory[out] = 1 if args[0] == args[1] else 0
 
         return n_params
 
     def _validate_instruction(self, address: int, n_params: int) -> None:
         """Validates a given instruction based on the opcode's address.
 
-        A valid instruction must have:
-            1. The necessary amount of parameters, according to the opcode.
-            2. The parameters must point to existing addresses in the computer's
-                memory.
+        A valid instruction must have the necessary amount of parameters,
+        according to the opcode.
 
         Args:
             address (int): Instruction's opcode address
@@ -129,18 +226,10 @@ class IntcodeComputer:
                 f"{n_params} integers after it to serve as its parameters."
             )
 
-        invalid_params = [
-            str(param)
-            for param in self.memory[address + 1 : address + n_params + 1]
-            if param >= mem_size
-        ]
-        if invalid_params:
-            raise IndexError(
-                f"Memory does not contain addresses {', '.join(invalid_params)}"
-            )
-
 
 if __name__ == "__main__":
+    # day 02
+    print("Day 02")
     with open("data/day_02_intcode_program.txt", "r") as f:
         computer = IntcodeComputer(f.read())
 
@@ -154,3 +243,16 @@ if __name__ == "__main__":
             if computer.memory[0] == 19690720:
                 print(noun * 100 + verb)
                 break
+
+    print("\nDay 05")
+    # day 05
+    with open("data/day_05_intcode_program.txt", "r") as f:
+        computer = IntcodeComputer(f.read())
+
+        print("Challenge 1:")
+        input = lambda: "1"  # monkey patched input function
+        computer.execute()
+
+        print("Challenge 2:")
+        input = lambda: "5"  # monkey patched input function
+        computer.execute()

@@ -11,6 +11,7 @@ class CodeBreaker:
         valid_range (Tuple[str, str], optional): The range of possible passwords.
             If None, will check all from all possible passwords of length `length`.
     """
+
     def __init__(
         self, length: int, valid_range: Optional[Tuple[str, str]] = None,
     ) -> None:
@@ -29,12 +30,14 @@ class CodeBreaker:
         """
         if strict:
             return [
-                pw for pw in self._generate_candidates()
+                pw
+                for pw in self._generate_candidates()
                 if self._is_non_dec(pw) and self._has_adj_strict(pw)
             ]
         else:
             return [
-                pw for pw in self._generate_candidates()
+                pw
+                for pw in self._generate_candidates()
                 if self._is_non_dec(pw) and self._has_adj(pw)
             ]
 
